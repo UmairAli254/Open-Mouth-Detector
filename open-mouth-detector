@@ -1,0 +1,61 @@
+import cv2
+import mediapipe as mp
+
+# Initialize
+mp_face_mesh = mp.solutions.face_mesh
+face_mesh = mp_face_mesh.FaceMesh()
+mp_drawing = mp.solutions.drawing_utils
+
+# Threshold to detect mouth open
+MOUTH_OPEN_THRESHOLD = 15  # You can adjust this value
+
+cap = cv2.VideoCapture(0)  # Use mobile/camera
+
+while cap.isOpened():
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    # Convert to RGB
+    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    results = face_mesh.process(rgb_frame)
+
+    mouth_open = False  # Default
+
+    if results.multi_face_landmarks:
+        for landmarks in results.multi_face_landmarks:
+            # Get upper and lower lip landmark positions
+            upper_lip = landmarks.landmark[13]  # Upper lip
+            lower_lip = landmarks.landmark[14]  # Lower lip
+
+            h, w, _ = frame.shape
+            upper_lip_y = int(upper_lip.y * h)
+            lower_lip_y = int(lower_lip.y * h)
+
+            # Calculate distance between lips
+            lip_distance = abs(lower_lip_y - upper_lip_y)
+
+            # Draw lips
+            cv2.circle(frame, (int(upper_lip.x * w), upper_lip_y), 2, (0, 255, 0), -1)
+            cv2.circle(frame, (int(lower_lip.x * w), lower_lip_y), 2, (0, 0, 255), -1)
+
+            # Check if mouth open
+            if lip_distance > MOUTH_OPEN_THRESHOLD:
+                mouth_open = True
+                cv2.putText(frame, 'Mouth Open', (50, 50), cv2.FONT_HERSHEY_SIMPLEX,
+                            1, (0, 255, 0), 2, cv2.LINE_AA)
+            else:
+                cv2.putText(frame, 'Mouth Closed', (50, 50), cv2.FONT_HERSHEY_SIMPLEX,
+                            1, (0, 0, 255), 2, cv2.LINE_AA)
+
+            # Print status
+            print("Mouth Open:", mouth_open)
+
+    # Show video
+    cv2.imshow('Mouth Detection', frame)
+
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+cap.release()
+cv2.destroyAllWindows()
